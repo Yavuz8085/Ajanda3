@@ -5,6 +5,7 @@ const maxRows = 5;
 
 export default function App() {
   const [notes, setNotes] = useState({});
+  const [activeRow, setActiveRow] = useState(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("agenda-enhanced");
@@ -74,6 +75,12 @@ export default function App() {
     return "📁";
   };
 
+  const showMenu = (day, rowIndex) => {
+    setActiveRow({ day, rowIndex });
+  };
+
+  const hideMenu = () => setActiveRow(null);
+
   return (
     <div style={{ padding: "1rem", fontFamily: "sans-serif", maxWidth: 800, margin: "auto" }}>
       {days.map(day => (
@@ -81,8 +88,10 @@ export default function App() {
           <h2>{day}</h2>
           {Array.from({ length: maxRows }).map((_, rowIndex) => {
             const row = notes[day]?.[rowIndex] || { text: "", files: [], links: [] };
+            const isActive = activeRow && activeRow.day === day && activeRow.rowIndex === rowIndex;
+
             return (
-              <div key={rowIndex} style={{ display: "flex", alignItems: "flex-start", borderBottom: "1px solid #ccc", padding: "0.5rem 0" }}>
+              <div key={rowIndex} style={{ display: "flex", alignItems: "flex-start", borderBottom: "1px solid #ccc", padding: "0.5rem 0", position: "relative" }}>
                 <textarea
                   placeholder="Write your note..."
                   style={{
@@ -99,32 +108,43 @@ export default function App() {
                   onChange={(e) => handleTextChange(day, rowIndex, e.target.value)}
                 />
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginLeft: 8 }}>
-                  <label style={{ cursor: "pointer" }}>
-                    📎
-                    <input
-                      type="file"
-                      multiple
-                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-                      onChange={(e) => handleFileUpload(day, rowIndex, e.target.files)}
-                      style={{ display: "none" }}
-                    />
-                  </label>
-                  <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.2rem", marginTop: 4 }} onClick={() => handleAddLink(day, rowIndex)}>🌐</button>
-                </div>
-                <div style={{ marginLeft: 12 }}>
-                  {row.files.map((file, i) => (
-                    <div key={i}>
-                      <a href={file.data} target="_blank" rel="noopener noreferrer">
-                        {getFileIcon(file.name)} {file.name}
-                      </a>
+                  <button
+                    onClick={() => showMenu(day, rowIndex)}
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.2rem" }}
+                  >📎</button>
+
+                  {isActive && (
+                    <div style={{ position: "absolute", top: "100%", right: 0, background: "white", border: "1px solid #ccc", zIndex: 10 }}>
+                      <label style={{ display: "block", padding: "0.5rem", cursor: "pointer" }}>
+                        📄 File
+                        <input
+                          type="file"
+                          multiple
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                          onChange={(e) => {
+                            handleFileUpload(day, rowIndex, e.target.files);
+                            hideMenu();
+                          }}
+                          style={{ display: "none" }}
+                        />
+                      </label>
+                      <div style={{ padding: "0.5rem", cursor: "pointer" }} onClick={() => {
+                        handleAddLink(day, rowIndex);
+                        hideMenu();
+                      }}>
+                        🌐 Link
+                      </div>
                     </div>
+                  )}
+                </div>
+                <div style={{ marginLeft: 12, display: "flex", gap: "0.3rem", flexWrap: "wrap" }}>
+                  {row.files.map((file, i) => (
+                    <a key={i} href={file.data} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1.2rem" }}>
+                      {getFileIcon(file.name)}
+                    </a>
                   ))}
                   {row.links.map((link, j) => (
-                    <div key={j}>
-                      <a href={link} target="_blank" rel="noopener noreferrer">
-                        🌐 {link}
-                      </a>
-                    </div>
+                    <a key={j} href={link} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1.2rem" }}>🌐</a>
                   ))}
                 </div>
               </div>
