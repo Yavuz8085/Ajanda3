@@ -42,5 +42,6 @@ return ( <div style={{ display: "grid", gridTemplateColumns: "1fr 1px 1fr", padd
   </div>
 </div>
 
-); }
+);
+}
 
