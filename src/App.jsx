@@ -7,7 +7,7 @@ export default function App() {
   const [notes, setNotes] = useState({});
   const [activeRow, setActiveRow] = useState(null);
   const [popupFile, setPopupFile] = useState(null);
-  const eraseTimeoutRef = useRef(null);
+  const [menuPosition, setMenuPosition] = useState(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("agenda-enhanced");
@@ -105,11 +105,17 @@ export default function App() {
 
   const hideMenu = () => setActiveRow(null);
 
-  const handleLongPress = (type, day, rowIndex, index) => {
-    if (eraseTimeoutRef.current) clearTimeout(eraseTimeoutRef.current);
-    eraseTimeoutRef.current = setTimeout(() => {
-      setPopupFile({ type, day, rowIndex, index });
-    }, 1000);
+  const handleIconClick = (e, type, day, rowIndex, index) => {
+    e.stopPropagation();
+    setPopupFile({ type, day, rowIndex, index });
+    setMenuPosition({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleOpen = ({ type, day, rowIndex, index }) => {
+    const item = notes[day][rowIndex][type === "file" ? "files" : "links"][index];
+    const link = type === "file" ? item.data : item;
+    window.open(link, "_blank");
+    setPopupFile(null);
   };
 
   return (
@@ -170,29 +176,20 @@ export default function App() {
                 </div>
                 <div style={{ marginLeft: 12, display: "flex", gap: "0.3rem", flexWrap: "wrap" }}>
                   {row.files.map((file, i) => (
-                    <div
-                      key={i}
-                      onMouseDown={() => handleLongPress("file", day, rowIndex, i)}
-                    >
-                      <a href={file.data} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1.2rem" }}>
-                        {getFileIcon(file.name)}
-                      </a>
+                    <div key={i} onClick={(e) => handleIconClick(e, "file", day, rowIndex, i)} style={{ fontSize: "1.2rem", cursor: "pointer" }}>
+                      {getFileIcon(file.name)}
                     </div>
                   ))}
                   {row.links.map((link, j) => (
-                    <div
-                      key={j}
-                      onMouseDown={() => handleLongPress("link", day, rowIndex, j)}
-                    >
-                      <a href={link} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1.2rem" }}>🌐</a>
+                    <div key={j} onClick={(e) => handleIconClick(e, "link", day, rowIndex, j)} style={{ fontSize: "1.2rem", cursor: "pointer" }}>
+                      🌐
                     </div>
                   ))}
                 </div>
                 {popupFile && popupFile.day === day && popupFile.rowIndex === rowIndex && (
-                  <div style={{ position: "absolute", bottom: -20, left: 0, background: "white", border: "1px solid #ccc", padding: "0.3rem 0.6rem", zIndex: 20 }}>
-                    <button onClick={() => handleErase(popupFile)} style={{ background: "none", border: "none", cursor: "pointer" }}>
-                      Erase
-                    </button>
+                  <div style={{ position: "fixed", top: menuPosition?.y, left: menuPosition?.x, background: "white", border: "1px solid #ccc", zIndex: 20, padding: "0.5rem" }}>
+                    <div onClick={() => handleOpen(popupFile)} style={{ cursor: "pointer", marginBottom: "0.3rem" }}>Open</div>
+                    <div onClick={() => handleErase(popupFile)} style={{ cursor: "pointer" }}>Delete</div>
                   </div>
                 )}
               </div>
