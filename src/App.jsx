@@ -6,6 +6,7 @@ const maxRows = 5;
 export default function App() {
   const [notes, setNotes] = useState({});
   const [activeRow, setActiveRow] = useState(null);
+  const [popupFile, setPopupFile] = useState(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("agenda-enhanced");
@@ -64,6 +65,22 @@ export default function App() {
       };
       return updated;
     });
+  };
+
+  const handleErase = ({ type, day, rowIndex, index }) => {
+    setNotes(prev => {
+      const updated = { ...prev };
+      if (!updated[day]) return prev;
+      const current = updated[day][rowIndex];
+      if (type === "file") {
+        current.files.splice(index, 1);
+      } else if (type === "link") {
+        current.links.splice(index, 1);
+      }
+      updated[day][rowIndex] = { ...current };
+      return updated;
+    });
+    setPopupFile(null);
   };
 
   const getFileIcon = (name) => {
@@ -139,19 +156,48 @@ export default function App() {
                 </div>
                 <div style={{ marginLeft: 12, display: "flex", gap: "0.3rem", flexWrap: "wrap" }}>
                   {row.files.map((file, i) => (
-                    <a key={i} href={file.data} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1.2rem" }}>
-                      {getFileIcon(file.name)}
-                    </a>
+                    <div
+                      key={i}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setPopupFile({ type: "file", day, rowIndex, index: i });
+                      }}
+                      onTouchStart={(e) => {
+                        e.persist();
+                        const timeout = setTimeout(() => setPopupFile({ type: "file", day, rowIndex, index: i }), 1000);
+                        const clear = () => clearTimeout(timeout);
+                        e.target.addEventListener("touchend", clear, { once: true });
+                        e.target.addEventListener("touchmove", clear, { once: true });
+                      }}
+                    >
+                      <a href={file.data} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1.2rem" }}>
+                        {getFileIcon(file.name)}
+                      </a>
+                    </div>
                   ))}
                   {row.links.map((link, j) => (
-                    <a key={j} href={link} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1.2rem" }}>🌐</a>
+                    <div
+                      key={j}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setPopupFile({ type: "link", day, rowIndex, index: j });
+                      }}
+                      onTouchStart={(e) => {
+                        e.persist();
+                        const timeout = setTimeout(() => setPopupFile({ type: "link", day, rowIndex, index: j }), 1000);
+                        const clear = () => clearTimeout(timeout);
+                        e.target.addEventListener("touchend", clear, { once: true });
+                        e.target.addEventListener("touchmove", clear, { once: true });
+                      }}
+                    >
+                      <a href={link} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1.2rem" }}>🌐</a>
+                    </div>
                   ))}
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
-}
+                {popupFile && popupFile.day === day && popupFile.rowIndex === rowIndex && (
+                  <div style={{ position: "absolute", bottom: -20, left: 0, background: "white", border: "1px solid #ccc", padding: "0.3rem 0.6rem", zIndex: 20 }}>
+                    <button onClick={() => handleErase(popupFile)} style={{ background: "none", border: "none", cursor: "pointer" }}>
+                      Erase
+                    </button>
+                  </div>
+                )}
