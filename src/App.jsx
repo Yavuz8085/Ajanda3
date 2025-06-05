@@ -4,8 +4,8 @@ const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
 function getCurrentWeekStart(date = new Date()) {
   const today = new Date(date);
-  const day = today.getDay(); // 0 (Sunday) to 6 (Saturday)
-  const diff = today.getDate() - day + (day === 0 ? -6 : 1); // get Monday
+  const day = today.getDay();
+  const diff = today.getDate() - day + (day === 0 ? -6 : 1);
   const monday = new Date(today.setDate(diff));
   monday.setHours(0, 0, 0, 0);
   return monday;
@@ -42,27 +42,20 @@ export default function App() {
     setNotes(prev => ({ ...prev, [key]: value }));
   };
 
-  const formatDate = (date) =>
+  const formatFullDate = (date) =>
     date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
-  const renderLines = (dayKey) => (
-    <textarea
-      style={{
-        width: "100%",
-        height: "120px",
-        fontSize: "1rem",
-        lineHeight: "1.6",
-        border: "none",
-        borderBottom: "1px solid #ccc",
-        resize: "none",
-        outline: "none",
-        background: "transparent"
-      }}
-      value={notes[dayKey] || ""}
-      onChange={(e) => handleChange(dayKey, e.target.value)}
-      placeholder=""
-    />
-  );
+  const formatShortWeek = (start, end) => {
+    const options = { day: "2-digit", month: "long" };
+    const startDay = start.toLocaleDateString("en-GB", options);
+    const endDay = end.toLocaleDateString("en-GB", options);
+
+    const [startD, startM] = startDay.split(" ");
+    const [endD, endM] = endDay.split(" ");
+
+    if (startM === endM) return `${startD}-${endD} ${startM} ${start.getFullYear()}`;
+    else return `${startD} ${startM} – ${endD} ${endM} ${end.getFullYear()}`;
+  };
 
   const goToPreviousWeek = () => {
     const newStart = new Date(weekStart);
@@ -79,11 +72,15 @@ export default function App() {
   return (
     <div style={{ padding: "1rem", fontFamily: "sans-serif" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button onClick={goToPreviousWeek}>⬅️ Previous</button>
-        <h2>
-          Week: {formatDate(weekDates[0])} – {formatDate(weekDates[4])}
-        </h2>
-        <button onClick={goToNextWeek}>Next ➡️</button>
+        <span
+          onClick={goToPreviousWeek}
+          style={{ cursor: "pointer", fontSize: "1.5rem" }}
+        >⬅️</span>
+        <h2>{formatShortWeek(weekDates[0], weekDates[4])}</h2>
+        <span
+          onClick={goToNextWeek}
+          style={{ cursor: "pointer", fontSize: "1.5rem" }}
+        >➡️</span>
       </div>
       <div
         style={{
@@ -96,8 +93,22 @@ export default function App() {
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           {days.slice(0, 3).map((day, i) => (
             <div key={day}>
-              <h3>{day} – {formatDate(weekDates[i])}</h3>
-              {renderLines(day)}
+              <h3>{day} – {formatFullDate(weekDates[i])}</h3>
+              <textarea
+                style={{
+                  width: "100%",
+                  height: "120px",
+                  fontSize: "1rem",
+                  lineHeight: "1.6",
+                  border: "none",
+                  borderBottom: "1px solid #ccc",
+                  resize: "none",
+                  outline: "none",
+                  background: "transparent"
+                }}
+                value={notes[day] || ""}
+                onChange={(e) => handleChange(day, e.target.value)}
+              />
             </div>
           ))}
         </div>
@@ -105,13 +116,41 @@ export default function App() {
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           {days.slice(3).map((day, i) => (
             <div key={day}>
-              <h3>{day} – {formatDate(weekDates[i + 3])}</h3>
-              {renderLines(day)}
+              <h3>{day} – {formatFullDate(weekDates[i + 3])}</h3>
+              <textarea
+                style={{
+                  width: "100%",
+                  height: "120px",
+                  fontSize: "1rem",
+                  lineHeight: "1.6",
+                  border: "none",
+                  borderBottom: "1px solid #ccc",
+                  resize: "none",
+                  outline: "none",
+                  background: "transparent"
+                }}
+                value={notes[day] || ""}
+                onChange={(e) => handleChange(day, e.target.value)}
+              />
             </div>
           ))}
           <div>
             <h3>Weekly Notes</h3>
-            {renderLines("weekly")}
+            <textarea
+              style={{
+                width: "100%",
+                height: "120px",
+                fontSize: "1rem",
+                lineHeight: "1.6",
+                border: "none",
+                borderBottom: "1px solid #ccc",
+                resize: "none",
+                outline: "none",
+                background: "transparent"
+              }}
+              value={notes["weekly"] || ""}
+              onChange={(e) => handleChange("weekly", e.target.value)}
+            />
           </div>
         </div>
       </div>
