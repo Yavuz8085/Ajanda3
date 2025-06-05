@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const days = ["Monday"];
 const maxRows = 5;
@@ -7,6 +7,7 @@ export default function App() {
   const [notes, setNotes] = useState({});
   const [activeRow, setActiveRow] = useState(null);
   const [popupFile, setPopupFile] = useState(null);
+  const eraseTimeoutRef = useRef(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("agenda-enhanced");
@@ -16,6 +17,12 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("agenda-enhanced", JSON.stringify(notes));
   }, [notes]);
+
+  useEffect(() => {
+    const handleClickOutside = () => setPopupFile(null);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
 
   const handleTextChange = (day, rowIndex, value) => {
     setNotes(prev => {
@@ -98,6 +105,13 @@ export default function App() {
 
   const hideMenu = () => setActiveRow(null);
 
+  const handleLongPress = (type, day, rowIndex, index) => {
+    if (eraseTimeoutRef.current) clearTimeout(eraseTimeoutRef.current);
+    eraseTimeoutRef.current = setTimeout(() => {
+      setPopupFile({ type, day, rowIndex, index });
+    }, 1000);
+  };
+
   return (
     <div style={{ padding: "1rem", fontFamily: "sans-serif", maxWidth: 800, margin: "auto" }}>
       {days.map(day => (
@@ -158,17 +172,7 @@ export default function App() {
                   {row.files.map((file, i) => (
                     <div
                       key={i}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        setPopupFile({ type: "file", day, rowIndex, index: i });
-                      }}
-                      onTouchStart={(e) => {
-                        e.persist();
-                        const timeout = setTimeout(() => setPopupFile({ type: "file", day, rowIndex, index: i }), 1000);
-                        const clear = () => clearTimeout(timeout);
-                        e.target.addEventListener("touchend", clear, { once: true });
-                        e.target.addEventListener("touchmove", clear, { once: true });
-                      }}
+                      onMouseDown={() => handleLongPress("file", day, rowIndex, i)}
                     >
                       <a href={file.data} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1.2rem" }}>
                         {getFileIcon(file.name)}
@@ -178,17 +182,7 @@ export default function App() {
                   {row.links.map((link, j) => (
                     <div
                       key={j}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        setPopupFile({ type: "link", day, rowIndex, index: j });
-                      }}
-                      onTouchStart={(e) => {
-                        e.persist();
-                        const timeout = setTimeout(() => setPopupFile({ type: "link", day, rowIndex, index: j }), 1000);
-                        const clear = () => clearTimeout(timeout);
-                        e.target.addEventListener("touchend", clear, { once: true });
-                        e.target.addEventListener("touchmove", clear, { once: true });
-                      }}
+                      onMouseDown={() => handleLongPress("link", day, rowIndex, j)}
                     >
                       <a href={link} target="_blank" rel="noopener noreferrer" style={{ fontSize: "1.2rem" }}>🌐</a>
                     </div>
@@ -201,3 +195,11 @@ export default function App() {
                     </button>
                   </div>
                 )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
