@@ -1,39 +1,37 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 
 const days = ["Monday"];
 const maxRows = 5;
 
 export default function App() {
   const [notes, setNotes] = useState({});
-  const [activePopup, setActivePopup] = useState(null);
-  const holdTimeout = useRef(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("agenda-prototype");
+    const saved = localStorage.getItem("agenda-enhanced");
     if (saved) setNotes(JSON.parse(saved));
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("agenda-prototype", JSON.stringify(notes));
+    localStorage.setItem("agenda-enhanced", JSON.stringify(notes));
   }, [notes]);
 
   const handleTextChange = (day, rowIndex, value) => {
     setNotes(prev => {
       const updated = { ...prev };
-      if (!updated[day]) updated[day] = Array(maxRows).fill({ text: "", files: [] });
+      if (!updated[day]) updated[day] = Array(maxRows).fill({ text: "", files: [], links: [] });
       updated[day][rowIndex] = { ...updated[day][rowIndex], text: value };
       return updated;
     });
   };
 
-  const handleFileChange = (day, rowIndex, files) => {
+  const handleFileUpload = (day, rowIndex, files) => {
     if (!files || files.length === 0) return;
     const fileList = Array.from(files).slice(0, 2);
 
     const readers = fileList.map(file => {
       return new Promise((resolve) => {
         const reader = new FileReader();
-        reader.onload = () => resolve({ name: file.name, data: reader.result });
+        reader.onload = () => resolve({ name: file.name, type: file.type, data: reader.result });
         reader.readAsDataURL(file);
       });
     });
@@ -41,27 +39,39 @@ export default function App() {
     Promise.all(readers).then(uploadedFiles => {
       setNotes(prev => {
         const updated = { ...prev };
-        if (!updated[day]) updated[day] = Array(maxRows).fill({ text: "", files: [] });
-        const current = updated[day][rowIndex] || { text: "", files: [] };
+        if (!updated[day]) updated[day] = Array(maxRows).fill({ text: "", files: [], links: [] });
+        const current = updated[day][rowIndex];
         updated[day][rowIndex] = {
           ...current,
-          files: [...current.files, ...uploadedFiles].slice(0, 2),
+          files: [...current.files, ...uploadedFiles].slice(0, 2)
         };
         return updated;
       });
     });
-
-    setActivePopup(null);
   };
 
-  const startHold = (day, rowIndex) => {
-    holdTimeout.current = setTimeout(() => {
-      setActivePopup(`${day}-${rowIndex}`);
-    }, 2000);
+  const handleAddLink = (day, rowIndex) => {
+    const url = prompt("Enter a URL:");
+    if (!url) return;
+    setNotes(prev => {
+      const updated = { ...prev };
+      if (!updated[day]) updated[day] = Array(maxRows).fill({ text: "", files: [], links: [] });
+      const current = updated[day][rowIndex];
+      updated[day][rowIndex] = {
+        ...current,
+        links: [...current.links, url]
+      };
+      return updated;
+    });
   };
 
-  const cancelHold = () => {
-    clearTimeout(holdTimeout.current);
+  const getFileIcon = (name) => {
+    if (name.match(/\.pdf$/i)) return "📄";
+    if (name.match(/\.(doc|docx)$/i)) return "📝";
+    if (name.match(/\.(xls|xlsx)$/i)) return "📊";
+    if (name.match(/\.(ppt|pptx)$/i)) return "📽";
+    if (name.match(/\.(jpg|jpeg|png|webp)$/i)) return "🖼";
+    return "📁";
   };
 
   return (
@@ -70,50 +80,53 @@ export default function App() {
         <div key={day} style={{ marginBottom: "2rem" }}>
           <h2>{day}</h2>
           {Array.from({ length: maxRows }).map((_, rowIndex) => {
-            const row = notes[day]?.[rowIndex] || { text: "", files: [] };
+            const row = notes[day]?.[rowIndex] || { text: "", files: [], links: [] };
             return (
-              <div
-                key={rowIndex}
-                onPointerDown={() => startHold(day, rowIndex)}
-                onPointerUp={cancelHold}
-                onPointerLeave={cancelHold}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  borderBottom: "1px solid #ccc",
-                  padding: "0.5rem 0"
-                }}
-              >
-                {row.files.length > 0 && <span style={{ marginRight: 8 }}>📁</span>}
+              <div key={rowIndex} style={{ display: "flex", alignItems: "flex-start", borderBottom: "1px solid #ccc", padding: "0.5rem 0" }}>
                 <textarea
-                  placeholder=""
+                  placeholder="Write your note..."
                   style={{
                     width: "100%",
-                    height: "24px",
                     fontSize: "1rem",
-                    lineHeight: "1.6",
+                    lineHeight: "1.5",
                     border: "none",
-                    resize: "none",
+                    resize: "vertical",
                     outline: "none",
                     background: "transparent"
                   }}
+                  rows={2}
                   value={row.text}
                   onChange={(e) => handleTextChange(day, rowIndex, e.target.value)}
                 />
-                {activePopup === `${day}-${rowIndex}` && (
-                  <div style={{ position: "absolute", background: "white", border: "1px solid #ccc", padding: 6, zIndex: 10 }}>
-                    <label style={{ cursor: "pointer" }}>
-                      📎 Add file
-                      <input
-                        type="file"
-                        multiple
-                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-                        onChange={(e) => handleFileChange(day, rowIndex, e.target.files)}
-                        style={{ display: "none" }}
-                      />
-                    </label>
-                  </div>
-                )}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginLeft: 8 }}>
+                  <label style={{ cursor: "pointer" }}>
+                    📎
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                      onChange={(e) => handleFileUpload(day, rowIndex, e.target.files)}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                  <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.2rem", marginTop: 4 }} onClick={() => handleAddLink(day, rowIndex)}>🌐</button>
+                </div>
+                <div style={{ marginLeft: 12 }}>
+                  {row.files.map((file, i) => (
+                    <div key={i}>
+                      <a href={file.data} target="_blank" rel="noopener noreferrer">
+                        {getFileIcon(file.name)} {file.name}
+                      </a>
+                    </div>
+                  ))}
+                  {row.links.map((link, j) => (
+                    <div key={j}>
+                      <a href={link} target="_blank" rel="noopener noreferrer">
+                        🌐 {link}
+                      </a>
+                    </div>
+                  ))}
+                </div>
               </div>
             );
           })}
