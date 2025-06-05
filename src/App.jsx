@@ -1,159 +1,124 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
-const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-
-function getCurrentWeekStart(date = new Date()) {
-  const today = new Date(date);
-  const day = today.getDay();
-  const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(today.setDate(diff));
-  monday.setHours(0, 0, 0, 0);
-  return monday;
-}
-
-function getWeekDates(startDate) {
-  const days = [];
-  for (let i = 0; i < 5; i++) {
-    const d = new Date(startDate);
-    d.setDate(d.getDate() + i);
-    days.push(d);
-  }
-  return days;
-}
+const days = ["Monday"];
+const maxRows = 5;
 
 export default function App() {
-  const [weekStart, setWeekStart] = useState(getCurrentWeekStart());
   const [notes, setNotes] = useState({});
-
-  const weekDates = getWeekDates(weekStart);
-  const weekKey = weekStart.toISOString().split("T")[0];
+  const [activePopup, setActivePopup] = useState(null);
+  const holdTimeout = useRef(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("agenda-notes-" + weekKey);
+    const saved = localStorage.getItem("agenda-prototype");
     if (saved) setNotes(JSON.parse(saved));
-    else setNotes({});
-  }, [weekKey]);
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem("agenda-notes-" + weekKey, JSON.stringify(notes));
-  }, [notes, weekKey]);
+    localStorage.setItem("agenda-prototype", JSON.stringify(notes));
+  }, [notes]);
 
-  const handleChange = (key, value) => {
-    setNotes(prev => ({ ...prev, [key]: value }));
+  const handleTextChange = (day, rowIndex, value) => {
+    setNotes(prev => {
+      const updated = { ...prev };
+      if (!updated[day]) updated[day] = Array(maxRows).fill({ text: "", files: [] });
+      updated[day][rowIndex] = { ...updated[day][rowIndex], text: value };
+      return updated;
+    });
   };
 
-  const formatFullDate = (date) =>
-    date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const handleFileChange = (day, rowIndex, files) => {
+    if (!files || files.length === 0) return;
+    const fileList = Array.from(files).slice(0, 2);
 
-  const formatShortWeek = (start, end) => {
-    const options = { day: "2-digit", month: "long" };
-    const startDay = start.toLocaleDateString("en-GB", options);
-    const endDay = end.toLocaleDateString("en-GB", options);
+    const readers = fileList.map(file => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ name: file.name, data: reader.result });
+        reader.readAsDataURL(file);
+      });
+    });
 
-    const [startD, startM] = startDay.split(" ");
-    const [endD, endM] = endDay.split(" ");
+    Promise.all(readers).then(uploadedFiles => {
+      setNotes(prev => {
+        const updated = { ...prev };
+        if (!updated[day]) updated[day] = Array(maxRows).fill({ text: "", files: [] });
+        const current = updated[day][rowIndex] || { text: "", files: [] };
+        updated[day][rowIndex] = {
+          ...current,
+          files: [...current.files, ...uploadedFiles].slice(0, 2),
+        };
+        return updated;
+      });
+    });
 
-    if (startM === endM) return `${startD}-${endD} ${startM} ${start.getFullYear()}`;
-    else return `${startD} ${startM} – ${endD} ${endM} ${end.getFullYear()}`;
+    setActivePopup(null);
   };
 
-  const goToPreviousWeek = () => {
-    const newStart = new Date(weekStart);
-    newStart.setDate(newStart.getDate() - 7);
-    setWeekStart(newStart);
+  const startHold = (day, rowIndex) => {
+    holdTimeout.current = setTimeout(() => {
+      setActivePopup(`${day}-${rowIndex}`);
+    }, 2000);
   };
 
-  const goToNextWeek = () => {
-    const newStart = new Date(weekStart);
-    newStart.setDate(newStart.getDate() + 7);
-    setWeekStart(newStart);
+  const cancelHold = () => {
+    clearTimeout(holdTimeout.current);
   };
 
   return (
-    <div style={{ padding: "1rem", fontFamily: "sans-serif" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span
-          onClick={goToPreviousWeek}
-          style={{ cursor: "pointer", fontSize: "1.5rem" }}
-        >⬅️</span>
-        <h2>{formatShortWeek(weekDates[0], weekDates[4])}</h2>
-        <span
-          onClick={goToNextWeek}
-          style={{ cursor: "pointer", fontSize: "1.5rem" }}
-        >➡️</span>
-      </div>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1px 1fr",
-          gap: "1rem",
-          marginTop: "1rem"
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {days.slice(0, 3).map((day, i) => (
-            <div key={day}>
-              <h3>{day} – {formatFullDate(weekDates[i])}</h3>
-              <textarea
+    <div style={{ padding: "1rem", fontFamily: "sans-serif", maxWidth: 800, margin: "auto" }}>
+      {days.map(day => (
+        <div key={day} style={{ marginBottom: "2rem" }}>
+          <h2>{day}</h2>
+          {Array.from({ length: maxRows }).map((_, rowIndex) => {
+            const row = notes[day]?.[rowIndex] || { text: "", files: [] };
+            return (
+              <div
+                key={rowIndex}
+                onPointerDown={() => startHold(day, rowIndex)}
+                onPointerUp={cancelHold}
+                onPointerLeave={cancelHold}
                 style={{
-                  width: "100%",
-                  height: "120px",
-                  fontSize: "1rem",
-                  lineHeight: "1.6",
-                  border: "none",
+                  display: "flex",
+                  alignItems: "center",
                   borderBottom: "1px solid #ccc",
-                  resize: "none",
-                  outline: "none",
-                  background: "transparent"
+                  padding: "0.5rem 0"
                 }}
-                value={notes[day] || ""}
-                onChange={(e) => handleChange(day, e.target.value)}
-              />
-            </div>
-          ))}
+              >
+                {row.files.length > 0 && <span style={{ marginRight: 8 }}>📁</span>}
+                <textarea
+                  placeholder=""
+                  style={{
+                    width: "100%",
+                    height: "24px",
+                    fontSize: "1rem",
+                    lineHeight: "1.6",
+                    border: "none",
+                    resize: "none",
+                    outline: "none",
+                    background: "transparent"
+                  }}
+                  value={row.text}
+                  onChange={(e) => handleTextChange(day, rowIndex, e.target.value)}
+                />
+                {activePopup === `${day}-${rowIndex}` && (
+                  <div style={{ position: "absolute", background: "white", border: "1px solid #ccc", padding: 6, zIndex: 10 }}>
+                    <label style={{ cursor: "pointer" }}>
+                      📎 Add file
+                      <input
+                        type="file"
+                        multiple
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                        onChange={(e) => handleFileChange(day, rowIndex, e.target.files)}
+                        style={{ display: "none" }}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
-        <div style={{ backgroundColor: "#ccc", width: "1px" }} />
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {days.slice(3).map((day, i) => (
-            <div key={day}>
-              <h3>{day} – {formatFullDate(weekDates[i + 3])}</h3>
-              <textarea
-                style={{
-                  width: "100%",
-                  height: "120px",
-                  fontSize: "1rem",
-                  lineHeight: "1.6",
-                  border: "none",
-                  borderBottom: "1px solid #ccc",
-                  resize: "none",
-                  outline: "none",
-                  background: "transparent"
-                }}
-                value={notes[day] || ""}
-                onChange={(e) => handleChange(day, e.target.value)}
-              />
-            </div>
-          ))}
-          <div>
-            <h3>Weekly Notes</h3>
-            <textarea
-              style={{
-                width: "100%",
-                height: "120px",
-                fontSize: "1rem",
-                lineHeight: "1.6",
-                border: "none",
-                borderBottom: "1px solid #ccc",
-                resize: "none",
-                outline: "none",
-                background: "transparent"
-              }}
-              value={notes["weekly"] || ""}
-              onChange={(e) => handleChange("weekly", e.target.value)}
-            />
-          </div>
-        </div>
-      </div>
+      ))}
     </div>
   );
 }
