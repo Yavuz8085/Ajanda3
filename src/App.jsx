@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 
-const days = ["Monday"];
+const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const maxRows = 5;
 
 export default function App() {
@@ -107,8 +107,9 @@ export default function App() {
 
   const handleIconClick = (e, type, day, rowIndex, index) => {
     e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
     setPopupFile({ type, day, rowIndex, index });
-    setMenuPosition({ x: e.clientX, y: e.clientY });
+    setMenuPosition({ x: rect.left - 80, y: rect.bottom });
   };
 
   const handleOpen = ({ type, day, rowIndex, index }) => {
